@@ -55,9 +55,9 @@ module.exports = async function handler(req, res) {
 
   try {
     await transporter.sendMail({
-      from: `"세척나라 상담알림" <${process.env.GMAIL_USER}>`,
+      from: `"수도배관세척관리 총연합회 상담알림" <${process.env.GMAIL_USER}>`,
       to: process.env.NOTIFY_EMAILS,
-      subject: `[세척나라] 새 상담 신청 — ${name} / ${phone}`,
+      subject: `[수도배관세척관리 총연합회] 새 상담 신청 — ${name} / ${phone}`,
       text: [
         '새 무료 상담 신청이 접수되었습니다.',
         '',
@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
         `증상      : ${symptom || '(미입력)'}`,
         `접수 시각 : ${now}`,
         '',
-        '— 세척나라 상담 관리 시스템',
+        '— 수도배관세척관리 총연합회 상담 관리 시스템',
       ].join('\n'),
       html: `
         <div style="font-family:sans-serif;max-width:520px;margin:auto;">
@@ -96,7 +96,7 @@ module.exports = async function handler(req, res) {
               <td style="padding:10px 12px;border:1px solid #ddd;">${now}</td>
             </tr>
           </table>
-          <p style="color:#999;font-size:12px;margin-top:20px;">세척나라 상담 관리 시스템</p>
+          <p style="color:#999;font-size:12px;margin-top:20px;">수도배관세척관리 총연합회 상담 관리 시스템</p>
         </div>
       `,
     });
