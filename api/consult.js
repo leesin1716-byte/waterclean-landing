@@ -28,20 +28,69 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ error: '필수 항목을 입력해 주세요.' });
   }
 
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+    || req.socket?.remoteAddress
+    || 'unknown';
+
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
+  const ago24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  // 같은 전화번호 24시간 이내 재신청 차단
+  const { count: recentPhone } = await supabase
+    .from('consultations')
+    .select('*', { count: 'exact', head: true })
+    .eq('phone', phone)
+    .gte('created_at', ago24h);
+
+  if (recentPhone > 0) {
+    return res.status(429).json({
+      code: 'PHONE_COOLDOWN',
+      error: '해당 번호로 이미 신청이 접수되어 있습니다.',
+    });
+  }
+
+  // 같은 전화번호 총 5회 한도
+  const { count: totalPhone } = await supabase
+    .from('consultations')
+    .select('*', { count: 'exact', head: true })
+    .eq('phone', phone);
+
+  if (totalPhone >= 5) {
+    return res.status(429).json({
+      code: 'PHONE_MAX',
+      error: '해당 번호로 최대 신청 횟수(5회)를 초과했습니다.',
+    });
+  }
+
+  // 같은 IP 24시간 5회 이상 차단
+  const { count: recentIp } = await supabase
+    .from('consultations')
+    .select('*', { count: 'exact', head: true })
+    .eq('ip', ip)
+    .gte('created_at', ago24h);
+
+  if (recentIp >= 5) {
+    return res.status(429).json({
+      code: 'IP_LIMIT',
+      error: '단시간 내 너무 많은 신청이 감지되었습니다. 잠시 후 다시 시도해 주세요.',
+    });
+  }
+
+  // DB 저장
   const { error: dbError } = await supabase
     .from('consultations')
-    .insert([{ name, phone, building, symptom: symptom || '' }]);
+    .insert([{ name, phone, building, symptom: symptom || '', ip }]);
 
   if (dbError) {
     console.error('DB insert error:', dbError);
     return res.status(500).json({ error: '데이터 저장 중 오류가 발생했습니다.' });
   }
 
+  // 이메일 발송
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
